@@ -7,7 +7,7 @@ import joblib
 
 # 0) Page config + CSS to enlarge metric labels & values
 st.set_page_config(
-    page_title="EV Used Car Price Comparison",
+    page_title="EV Used Car Price Prediction Comparison",
     layout="wide",
 )
 st.markdown(
@@ -24,7 +24,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("⚡ EV Used Car Price Comparison")
+st.title("⚡ EV Used Car Price Prediction Comparison")
 
 # 1) Load your bundled preprocessor + models
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "all_models.pkl")
@@ -76,7 +76,7 @@ with col1:
         submitted = st.form_submit_button("🔍 Compare Prices")
 
 with col2:
-    st.header("Predicted Prices by Model")
+    st.header("Predicted Prices")
     if not submitted:
         st.write("Fill out the form on the left and click **Compare Prices** to see results.")
     else:
@@ -147,20 +147,37 @@ with col2:
 
         # Split into two groups
         linear_names    = ["LinearRegression", "Ridge"]
-        nonlinear_names = ["DecisionTree", "RandomForest", "XGBoost", "KNN"]
+        nonlinear_names = ["RandomForest", "DecisionTree", "XGBoost", "KNN"]
 
         lin_col, nonlin_col = st.columns(2)
 
         with lin_col:
-            st.subheader("Linear Models")
+            st.subheader("Linear Regression Models")
             for name in linear_names:
                 val = raw_preds.get(name)
                 disp = f"{val:,.0f}" if val is not None else "Error"
                 st.metric(name, disp, help=descriptions[name])
 
         with nonlin_col:
-            st.subheader("Non-Linear Models")
+            st.subheader("Non-Linear Regression Models")
             for name in nonlinear_names:
                 val = raw_preds.get(name)
                 disp = f"{val:,.0f}" if val is not None else "Error"
                 st.metric(name, disp, help=descriptions[name])
+
+        # 4) MSE Table
+        st.subheader("Model Root Mean Squared Error (RMSE)")
+        mse_dict = {
+            "LinearRegression": 123_499,
+            "Ridge":            125_199,
+            "RandomForest":      64_611,
+            "XGBoost":          118_827,
+            "DecisionTree":      81_309,
+            "KNN":              397_126,
+        }
+        mse_df = pd.DataFrame.from_dict(
+            mse_dict, orient="index", columns=["RMSE"]
+        )
+        mse_df.index.name = "Model"
+        mse_df["RMSE"] = mse_df["RMSE"].map(lambda x: f"{x:,}")
+        st.table(mse_df)
