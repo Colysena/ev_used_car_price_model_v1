@@ -9,11 +9,11 @@ import joblib
 # 0) Page config
 # ——————————————————————————————
 st.set_page_config(
-    page_title="EV Used Car Price Comparison",
+    page_title="EV Used Car Price Prediction",
     layout="wide",
 )
 
-st.title("⚡ EV Used Car Price Comparison")
+st.title("⚡ EV Used Car Price Prediction")
 
 # ——————————————————————————————
 # 1) Load your bundled preprocessor + models
@@ -67,11 +67,11 @@ with col1:
             "5. Car Type",
             ["sedan", "hatchback", "coupe", "SUV", "van", "station wagon"]
         )
-        submitted = st.form_submit_button("🔍 Compare Prices")
+        submitted = st.form_submit_button("🔍 Predict Prices")
 
 # — Column 2: the results table
 with col2:
-    st.header("Predicted Prices by Model")
+    st.header("Predicted Prices")
     if submitted:
         # build one‐row DataFrame matching your training columns
         input_df = pd.DataFrame([{
@@ -106,4 +106,4 @@ with col2:
         results_df.index.name = "Model"
         st.table(results_df)
     else:
-        st.write("Fill out the form on the left and click **Compare Prices** to see results.")
+        st.write("Fill out the form on the left and click **Predict Prices** to see results.")
