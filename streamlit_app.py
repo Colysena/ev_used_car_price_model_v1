@@ -4,8 +4,9 @@ import os
 import streamlit as st
 import pandas as pd
 import joblib
+import xgboost as xgb  # for loading XGBoost JSON
 
-# 0) Page config + CSS to enlarge metric labels & values
+# 0) Page config + CSS
 st.set_page_config(
     page_title="EV Used Car Price Prediction Comparison",
     layout="wide",
@@ -14,45 +15,51 @@ st.markdown(
     """
     <style>
       [data-testid="stMetricLabel"] {
-        font-size: 20px !important;    /* larger model name */
+        font-size: 20px !important;
       }
       [data-testid="stMetricValue"] {
-        font-size: 32px !important;    /* larger price */
+        font-size: 32px !important;
       }
     </style>
     """,
     unsafe_allow_html=True,
 )
-
 st.title("⚡ EV Used Car Price Prediction Comparison")
 
-# 1) Load your bundled preprocessor + models
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "all_models.pkl")
-if not os.path.exists(MODEL_PATH):
-    st.error(f"❌ Could not find `all_models.pkl` at:\n  {MODEL_PATH}")
+# 1) Load sklearn models + preprocessor from pickle
+PICKLE_PATH = os.path.join("models", "all_models.pkl")
+if not os.path.exists(PICKLE_PATH):
+    st.error(f"❌ Could not find `all_models.pkl` at {PICKLE_PATH}")
     st.stop()
 
-try:
-    all_objects = joblib.load(MODEL_PATH)
-except Exception as e:
-    st.error(f"❌ Failed to load `all_models.pkl`:\n{e}")
-    st.stop()
-
+all_objects = joblib.load(PICKLE_PATH)
 if "preprocessor" not in all_objects:
-    st.error("❌ Your pickle is missing the key `'preprocessor'`.")
+    st.error("❌ `preprocessor` key not found in pickle.")
     st.stop()
 preprocessor = all_objects["preprocessor"]
 
-model_names = [
-    "LinearRegression", "Ridge",
-    "DecisionTree", "RandomForest", "XGBoost", "KNN"
-]
-missing = [m for m in model_names if m not in all_objects]
-if missing:
-    st.error(f"❌ These models are missing in your pickle: {missing}")
+# 2) Load XGBoost from JSON
+XGB_JSON = os.path.join("models", "xgb_model.json")
+if not os.path.exists(XGB_JSON):
+    st.error(f"❌ Could not find `xgb_model.json` at {XGB_JSON}")
     st.stop()
+xgb_model = xgb.XGBRegressor()
+xgb_model.load_model(XGB_JSON)
+all_objects["XGBoost"] = xgb_model
 
-# 2) Layout: inputs on left, results on right
+# define model groups
+linear_names    = ["LinearRegression", "Ridge"]
+nonlinear_names = ["RandomForest", "DecisionTree", "XGBoost", "KNN"]
+
+# define brands (must match training)
+BRANDS = [
+    "MG", "Neta", "BYD", "Ora", "Aion", "Wuling",
+    "VOLT", "Tesla", "Ford", "NISSAN", "Hyundai",
+    "Audi", "Jaguar", "Mini", "Benz", "Porsche",
+    "Volvo", "BMW"
+]
+
+# 3) Build UI: inputs on left, results on right
 col1, col2 = st.columns(2)
 
 with col1:
@@ -62,8 +69,8 @@ with col1:
             "1. Color",
             ["Traditional", "Non-traditional"],
             help=(
-                'If the car color is White, Black, Grey, or Silver, please select "Traditional." '
-                'If the car color is any other color, please select "Non-traditional."'
+                'If the car color is White, Black, Grey, or Silver, select "Traditional." '
+                'Otherwise, select "Non-traditional."'
             )
         )
         year = st.slider("2. Manufactured Year", 2016, 2025, 2020, 1)
@@ -73,6 +80,10 @@ with col1:
             "5. Car Type",
             ["sedan", "hatchback", "coupe", "SUV", "van", "station wagon"]
         )
+        brand = st.selectbox(
+            "6. Brand",
+            BRANDS
+        )
         submitted = st.form_submit_button("🔍 Compare Prices")
 
 with col2:
@@ -80,13 +91,14 @@ with col2:
     if not submitted:
         st.write("Fill out the form on the left and click **Compare Prices** to see results.")
     else:
-        # Prepare input DataFrame
+        # Assemble input DataFrame (including Brand)
         input_df = pd.DataFrame([{
             "Adjusted_color":    color,
             "Manufactured_year": year,
             "Mileage (km)":      mileage,
             "Latest MSRP":       latest_msrp,
-            "Type of Car":       car_type
+            "Type of Car":       car_type,
+            "Brand":             brand
         }])
 
         # Preprocess
@@ -98,86 +110,53 @@ with col2:
 
         # Predict
         raw_preds = {}
-        for name in model_names:
-            mdl = all_objects[name]
+        for name in linear_names + nonlinear_names:
+            mdl = all_objects.get(name)
             try:
                 raw_preds[name] = mdl.predict(X_trans)[0]
             except Exception:
                 raw_preds[name] = None
 
-        # Descriptions for help tooltips
+        # Descriptions for tooltips (abbreviated here)
         descriptions = {
-            "LinearRegression": (
-                "It finds the best straight line that shows the relationship between features "
-                "(like car age, mileage, brand) and the EV’s price.\n\n"
-                "In EV used car price prediction: It predicts the price based on simple patterns, "
-                "like \"older cars have lower prices\" in a straight-line relationship."
-            ),
-            "Ridge": (
-                "It works like Linear Regression but adds a penalty if the model tries to fit the data too perfectly.\n\n"
-                "In EV used car price prediction: It helps when many features (like mileage and battery health) "
-                "are related, making the model more stable and preventing overfitting."
-            ),
-            "DecisionTree": (
-                "It splits the data by asking questions like \"Is mileage > 50,000 km?\" or \"Is battery health > 80%?\" "
-                "and makes a decision at each branch.\n\n"
-                "In EV used car price prediction: It can create simple rules, like "
-                "\"If battery health is low, price drops significantly.\""
-            ),
-            "RandomForest": (
-                "It builds many different Decision Trees on random parts of the data and averages their results "
-                "to make better predictions.\n\n"
-                "In EV used car price prediction: It can capture more complex factors, like combining brand, mileage, "
-                "and battery warranty together to predict the price more accurately."
-            ),
-            "XGBoost": (
-                "It builds trees step-by-step, where each new tree focuses on the mistakes of the previous ones, "
-                "making the final model very accurate.\n\n"
-                "In EV used car price prediction: It can find hidden patterns, like "
-                "\"Tesla cars hold value better after 3 years if they have free supercharging,\" "
-                "and adjust the price prediction accordingly."
-            ),
-            "KNN": (
-                "It finds the most similar cars (neighbors) based on features like mileage, year, and battery condition, "
-                "and predicts the price based on those similar cars.\n\n"
-                "In EV used car price prediction: It predicts the price by looking at prices of other EVs that are most similar "
-                "to the one being evaluated."
-            ),
+            "LinearRegression": "Straight-line fit between features and price.",
+            "Ridge":            "Linear with penalty to prevent overfit.",
+            "RandomForest":     "Ensemble of trees averaged.",
+            "DecisionTree":     "Rule-based splits on features.",
+            "XGBoost":          "Sequential trees correcting errors.",
+            "KNN":              "Averages k most similar cars."
         }
 
-        # Split into two groups
-        linear_names    = ["LinearRegression", "Ridge"]
-        nonlinear_names = ["RandomForest", "DecisionTree", "XGBoost", "KNN"]
-
+        # Display side-by-side
         lin_col, nonlin_col = st.columns(2)
 
         with lin_col:
-            st.subheader("Linear Regression Models")
+            st.subheader("Linear Models")
             for name in linear_names:
-                val = raw_preds.get(name)
+                val = raw_preds[name]
                 disp = f"{val:,.0f}" if val is not None else "Error"
-                st.metric(name, disp, help=descriptions[name])
+                st.metric(name, disp, help=descriptions.get(name, ""))
 
         with nonlin_col:
-            st.subheader("Non-Linear Regression Models")
+            st.subheader("Non-Linear Models")
             for name in nonlinear_names:
-                val = raw_preds.get(name)
+                val = raw_preds[name]
                 disp = f"{val:,.0f}" if val is not None else "Error"
-                st.metric(name, disp, help=descriptions[name])
+                st.metric(name, disp, help=descriptions.get(name, ""))
 
-        # 4) MSE Table
-        st.subheader("Model Root Mean Squared Error (RMSE)")
-        mse_dict = {
-            "LinearRegression": 123_499,
-            "Ridge":            125_199,
-            "RandomForest":      64_611,
-            "XGBoost":          118_827,
-            "DecisionTree":      81_309,
-            "KNN":              397_126,
+        # 4) RMSE + SD RMSE Table (sorted by RMSE)
+        st.subheader("Model RMSE and SD RMSE")
+        rmse_data = {
+            "Linear Regression":   {"RMSE": 291561.32, "SD RMSE": 35911.37},
+            "Ridge Regression":    {"RMSE": 291089.36, "SD RMSE": 32327.44},
+            "Random Forest":       {"RMSE": 265440.26, "SD RMSE": 52327.85},
+            "Gradient Boosting":   {"RMSE": 264073.08, "SD RMSE": 49514.23},
+            "Decision Tree":       {"RMSE": 342104.69, "SD RMSE": 26443.26},
+            "KNN Regressor":       {"RMSE": 283916.80, "SD RMSE": 38716.82},
         }
-        mse_df = pd.DataFrame.from_dict(
-            mse_dict, orient="index", columns=["RMSE"]
-        )
-        mse_df.index.name = "Model"
-        mse_df["RMSE"] = mse_df["RMSE"].map(lambda x: f"{x:,}")
-        st.table(mse_df)
+        rmse_df = pd.DataFrame.from_dict(rmse_data, orient="index")
+        rmse_df.index.name = "Model"
+        rmse_df = rmse_df.sort_values(by="RMSE", ascending=True)
+        rmse_df["RMSE"]    = rmse_df["RMSE"].map(lambda x: f"{x:,.2f}")
+        rmse_df["SD RMSE"] = rmse_df["SD RMSE"].map(lambda x: f"{x:,.2f}")
+        st.table(rmse_df)
