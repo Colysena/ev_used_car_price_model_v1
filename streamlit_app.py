@@ -48,8 +48,8 @@ xgb_model.load_model(XGB_JSON)
 all_objects["XGBoost"] = xgb_model
 
 # define model groups
-linear_names    = ["LinearRegression", "Ridge"]
-nonlinear_names = ["RandomForest", "DecisionTree", "XGBoost", "KNN"]
+linear_names    = ["Ridge Regression", "Linear Regression"]
+nonlinear_names = ["Gradient Boosting", "RandomForest", "KNN" , "DecisionTree"]
 
 # define brands (must match training)
 BRANDS = [
@@ -119,15 +119,14 @@ with col2:
 
         # Descriptions for tooltips (abbreviated here)
         descriptions = {
-            "LinearRegression": "Straight-line fit between features and price.",
-            "Ridge":            "Linear with penalty to prevent overfit.",
-            "RandomForest":     "Ensemble of trees averaged.",
-            "DecisionTree":     "Rule-based splits on features.",
-            "XGBoost":          "Sequential trees correcting errors.",
-            "KNN":              "Averages k most similar cars."
+            "Linear Regression": "Principle: Linear regression assumes a linear relationship between the input features (independent variables) and the target variable (dependent variable, in this case, car price). It tries to find the best-fitting straight line through the data points that minimizes the sum of the squared differences between the observed values and the values predicted by the model. Usage: This model is best used when the relationship between the features and the target is expected to be linear. It is simple and interpretable, but may struggle with more complex relationships.",
+            "Ridge Regression":            "Principle: Ridge regression is a type of linear regression that includes a regularization term to prevent overfitting. It adds a penalty to the size of the coefficients in the linear regression equation, helping to handle multicollinearity and improve model generalization, especially in the presence of many features. Usage: Ridge regression is typically used when you have multicollinearity (i.e., when input features are highly correlated) and want to prevent overfitting by penalizing large coefficients.",
+            "RandomForest":     "Principle: Random Forest is an ensemble learning method that combines multiple decision trees. Each tree is trained on a random subset of the data and features, and the final prediction is made by averaging the predictions of all the trees (for regression tasks). Random forests are powerful models that can capture complex non-linear relationships and are robust against overfitting. Usage: Random Forest is ideal for problems with many features or non-linear relationships, and it works well even when the data has a lot of noise. It is more flexible than linear models but also more computationally expensive.",
+            "DecisionTree":     "Principle: A decision tree model splits the dataset into subsets based on the most significant feature at each step. Each split is made in such a way that it minimizes the variance of the target variable within each resulting subset. Decision trees are simple, interpretable, and can handle both numerical and categorical data. Usage: Decision trees are useful when the relationship between the features and target variable is highly non-linear. However, they are prone to overfitting, especially with deep trees.",
+            "Gradient Boosting": "Principle: Gradient Boosting is a machine learning algorithm that builds multiple decision trees sequentially, where each tree corrects the errors of the previous tree. Gradient Boosting is highly efficient and can handle missing data, which makes it one of the most popular algorithms for structured/tabular data. Usage: Gradient Boosting is powerful for predictive modeling and excels in handling non-linear relationships. It is widely used in competitive machine learning due to its robustness, speed, and accuracy.",
+            "KNN":              "Principle: KNN is a simple, instance-based learning algorithm that predicts the value of a target variable based on the values of its nearest neighbors. For regression tasks, the prediction is the average of the target variable values of the k-nearest data points. Usage: KNN works well when there is no clear model or functional relationship between the features and target. It can handle non-linear relationships but is computationally expensive and becomes slow as the dataset grows larger."
         }
 
-        # Display side-by-side
         lin_col, nonlin_col = st.columns(2)
 
         with lin_col:
