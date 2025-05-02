@@ -47,9 +47,10 @@ xgb_model = xgb.XGBRegressor()
 xgb_model.load_model(XGB_JSON)
 all_objects["XGBoost"] = xgb_model
 
-# define model groups
-linear_names    = ["Ridge Regression", "Linear Regression"]
-nonlinear_names = ["Gradient Boosting", "RandomForest", "KNN" , "DecisionTree"]
+# internal keys
+linear_names    = ["LinearRegression", "Ridge"]
+nonlinear_names = ["RandomForest", "DecisionTree", "XGBoost", "KNN"]
+
 
 # define brands (must match training)
 BRANDS = [
